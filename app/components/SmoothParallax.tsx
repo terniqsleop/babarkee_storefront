@@ -22,61 +22,61 @@ export default function SmoothParallax() {
         offset: ["start end", "end start"]
     });
 
+    // 1. SMooth the Image Parallax specifically to combat native scroll jitter on mobile
+    const smoothImageProgress = useSpring(scrollYProgress, {
+        stiffness: 100,
+        damping: 30,
+        restDelta: 0.001
+    });
+
     const { scrollYProgress: videoScrollProgress } = useScroll({
         target: videoContainer,
         offset: ["start end", "end start"]
     });
 
-    const targetTime = useRef<number>(0);
-    const isSeeking = useRef(false);
+    // 2. Smooth the Video Scrub target vector to prevent overwhelming decoder hardware
+    const smoothVideoProgress = useSpring(videoScrollProgress, {
+        stiffness: 80,
+        damping: 20,
+        restDelta: 0.001
+    });
 
-    // We remove useSpring because the global Lenis smooth scroller is already natively smoothing the scroll values!
-    // Adding a spring overlapping Lenis overloads the browser's video decoder causing it to randomly freeze or lag.
-    useMotionValueEvent(videoScrollProgress, "change", (latest) => {
-        if (!videoRef.current || !videoRef.current.duration) return;
+    const lastRenderedTime = useRef(0);
 
-        // Always store the absolute latest target time
-        targetTime.current = latest * videoRef.current.duration;
+    useMotionValueEvent(smoothVideoProgress, "change", (latest) => {
+        if (!videoRef.current || isNaN(videoRef.current.duration)) return;
 
-        // If the browser's video decoder is actively working, ignore this update.
-        // It prevents the dreaded MP4 "decoder death spiral" that freezes the whole page!
-        if (isSeeking.current) return;
+        const targetTime = latest * videoRef.current.duration;
 
-        requestAnimationFrame(() => {
-            if (videoRef.current) {
-                isSeeking.current = true;
-                videoRef.current.currentTime = targetTime.current;
-            }
-        });
+        // Throttling the `currentTime` update to approximately 24 FPS (every 0.04s).
+        // If we push updates faster than mobile processors can decode intra-frames, Chrome/Safari will violently stutter.
+        if (Math.abs(targetTime - lastRenderedTime.current) > 0.04) {
+            requestAnimationFrame(() => {
+                if (videoRef.current) {
+                    videoRef.current.currentTime = targetTime;
+                    lastRenderedTime.current = targetTime;
+                }
+            });
+        }
     });
 
     const { height } = dimension;
 
-    // Values mapped to vertical position based on scroll progress
-    const y1 = useTransform(scrollYProgress, [0, 1], [0, height * 2]);
-    const y2 = useTransform(scrollYProgress, [0, 1], [0, height * 3.3]);
-    const y3 = useTransform(scrollYProgress, [0, 1], [0, height * 1.25]);
-    const y4 = useTransform(scrollYProgress, [0, 1], [0, height * 3]);
+    // Values mapped to vertical position based on smoothed image progress
+    const y1 = useTransform(smoothImageProgress, [0, 1], [0, height * 2]);
+    const y2 = useTransform(smoothImageProgress, [0, 1], [0, height * 3.3]);
+    const y3 = useTransform(smoothImageProgress, [0, 1], [0, height * 1.25]);
+    const y4 = useTransform(smoothImageProgress, [0, 1], [0, height * 3]);
 
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
 
-        const handleSeeked = () => {
-            isSeeking.current = false;
-
-            // If the user kept scrolling while the browser was busy decoding the last frame, 
-            // the video will be slightly behind. Immediately catch it up to the current target!
-            if (Math.abs(video.currentTime - targetTime.current) > 0.05) {
-                isSeeking.current = true;
-                video.currentTime = targetTime.current;
-            }
-        };
-
-        video.addEventListener("seeked", handleSeeked);
-
-        // Force the video to pause upon mount so the browser dedicates resources purely to our manual scrubbing
-        video.pause();
+        // Force browser to dedicate resources purely to our manual scrubbing by pausing natively.
+        // Timeout ensures the initial starting frame actually computes and paints first.
+        setTimeout(() => {
+            video.pause();
+        }, 100);
 
         const resize = () => {
             setDimension({ width: window.innerWidth, height: window.innerHeight });
@@ -85,7 +85,6 @@ export default function SmoothParallax() {
         resize();
 
         return () => {
-            video.removeEventListener("seeked", handleSeeked);
             window.removeEventListener("resize", resize);
         };
     }, []);
@@ -101,6 +100,7 @@ export default function SmoothParallax() {
                         playsInline
                         preload="auto"
                         className="absolute inset-0 w-full h-full object-cover"
+                        style={{ willChange: "transform" }}
                     >
                         <source src="/video2.mp4" type="video/mp4" />
                     </video>
@@ -122,7 +122,7 @@ const Column = ({ images, y, top }: { images: string[], y: MotionValue<number>, 
     return (
         <motion.div
             className="relative h-full w-1/4 min-w-[250px] flex flex-col gap-[2vw]"
-            style={{ y, top }}
+            style={{ y, top, willChange: "transform" }}
         >
             {images.map((src, i) => (
                 <div key={i} className="h-full w-full relative rounded-2xl md:rounded-[1vw] overflow-hidden group">
