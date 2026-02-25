@@ -17,13 +17,14 @@ export default function Hero() {
 
     // 3. The video behind slowly scales down to 1 (starts slightly zoomed in)
     const videoScale = useTransform(scrollY, [0, 500], [1.15, 1]);
+    const videoY = useTransform(scrollY, [0, 500], [0, 200]); // Soft parallax tracking effect instead of pure fixed
 
     return (
         <section className="relative w-full min-h-[100dvh] bg-white text-black overflow-hidden">
-            {/* Background Video that stays fixed behind everything */}
+            {/* Background Video bounded accurately to the container depth */}
             <motion.div
-                style={{ scale: videoScale }}
-                className="fixed inset-0 w-full h-full z-0 pointer-events-none transform-origin-center origin-center"
+                style={{ scale: videoScale, y: videoY }}
+                className="absolute inset-0 w-full h-full z-0 pointer-events-none transform-origin-center origin-center"
             >
                 <video
                     autoPlay

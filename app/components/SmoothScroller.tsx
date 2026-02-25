@@ -1,9 +1,13 @@
 "use client";
 
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useRef } from "react";
 import Lenis from "@studio-freight/lenis";
+import { usePathname } from "next/navigation";
 
 export default function SmoothScroller({ children }: { children: ReactNode }) {
+    const pathname = usePathname();
+    const lenisRef = useRef<Lenis | null>(null);
+
     useEffect(() => {
         const lenis = new Lenis({
             duration: 1.2,
@@ -23,10 +27,21 @@ export default function SmoothScroller({ children }: { children: ReactNode }) {
 
         requestAnimationFrame(raf);
 
+        lenisRef.current = lenis;
+
         return () => {
             lenis.destroy();
+            lenisRef.current = null;
         };
     }, []);
+
+    // Instantly force scroll to top on any route change (fixes footer loading issue)
+    useEffect(() => {
+        if (lenisRef.current) {
+            lenisRef.current.scrollTo(0, { immediate: true });
+        }
+        window.scrollTo(0, 0);
+    }, [pathname]);
 
     return <>{children}</>;
 }
