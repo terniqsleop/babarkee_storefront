@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { useTransform, useScroll, motion, MotionValue, useMotionValueEvent, useSpring } from "framer-motion";
+import { useTransform, useScroll, motion, MotionValue, useSpring } from "framer-motion";
 
 const images = [
     "1.jpg", "2.jpg", "3.jpg", "4.jpg",
@@ -12,9 +12,6 @@ const images = [
 
 export default function SmoothParallax() {
     const gallery = useRef<HTMLDivElement>(null);
-    const videoContainer = useRef<HTMLDivElement>(null);
-    const videoRef = useRef<HTMLVideoElement>(null);
-
     const [dimension, setDimension] = useState({ width: 0, height: 0 });
 
     const { scrollYProgress } = useScroll({
@@ -22,42 +19,10 @@ export default function SmoothParallax() {
         offset: ["start end", "end start"]
     });
 
-    // 1. SMooth the Image Parallax specifically to combat native scroll jitter on mobile
     const smoothImageProgress = useSpring(scrollYProgress, {
         stiffness: 100,
         damping: 30,
         restDelta: 0.001
-    });
-
-    const { scrollYProgress: videoScrollProgress } = useScroll({
-        target: videoContainer,
-        offset: ["start end", "end start"]
-    });
-
-    // 2. Smooth the Video Scrub target vector to prevent overwhelming decoder hardware
-    const smoothVideoProgress = useSpring(videoScrollProgress, {
-        stiffness: 80,
-        damping: 20,
-        restDelta: 0.001
-    });
-
-    const lastRenderedTime = useRef(0);
-
-    useMotionValueEvent(smoothVideoProgress, "change", (latest) => {
-        if (!videoRef.current || isNaN(videoRef.current.duration)) return;
-
-        const targetTime = latest * videoRef.current.duration;
-
-        // Throttling the `currentTime` update to approximately 24 FPS (every 0.04s).
-        // If we push updates faster than mobile processors can decode intra-frames, Chrome/Safari will violently stutter.
-        if (Math.abs(targetTime - lastRenderedTime.current) > 0.04) {
-            requestAnimationFrame(() => {
-                if (videoRef.current) {
-                    videoRef.current.currentTime = targetTime;
-                    lastRenderedTime.current = targetTime;
-                }
-            });
-        }
     });
 
     const { height } = dimension;
@@ -69,15 +34,6 @@ export default function SmoothParallax() {
     const y4 = useTransform(smoothImageProgress, [0, 1], [0, height * 3]);
 
     useEffect(() => {
-        const video = videoRef.current;
-        if (!video) return;
-
-        // Force browser to dedicate resources purely to our manual scrubbing by pausing natively.
-        // Timeout ensures the initial starting frame actually computes and paints first.
-        setTimeout(() => {
-            video.pause();
-        }, 100);
-
         const resize = () => {
             setDimension({ width: window.innerWidth, height: window.innerHeight });
         };
@@ -91,20 +47,17 @@ export default function SmoothParallax() {
 
     return (
         <section className="bg-white">
-            {/* Extended height pinned container for frame-by-frame video scrub */}
-            <div ref={videoContainer} className="relative w-full h-[150vh] md:h-[250vh]">
-                <div className="sticky top-0 w-full h-screen overflow-hidden">
-                    <video
-                        ref={videoRef}
-                        muted
-                        playsInline
-                        preload="auto"
-                        className="absolute inset-0 w-full h-full object-cover"
-                        style={{ willChange: "transform" }}
-                    >
-                        <source src="/video2.mp4" type="video/mp4" />
-                    </video>
-                </div>
+            {/* Standard Auto-Playing Video Banner */}
+            <div className="relative w-full h-[60vh] md:h-[80vh] overflow-hidden">
+                <video
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover"
+                >
+                    <source src="/video2.mp4" type="video/mp4" />
+                </video>
             </div>
 
             {/* Gallery Wrapper */}
