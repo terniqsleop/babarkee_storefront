@@ -10,9 +10,8 @@ export default function Hero() {
     const textOpacity = useTransform(scrollY, [0, 300], [1, 0]);
     const textY = useTransform(scrollY, [0, 300], [0, -100]);
 
-    // 2. The huge black block scales up to full width and border radius goes to 0
-    const blockWidth = useTransform(scrollY, [0, 400], ["96%", "100%"]);
-    const maxWidth = useTransform(scrollY, [0, 400], ["1700px", "100vw"]);
+    // 2. The huge black block scales up using GPU accelerated transform instead of heavy CSS layout `width`
+    const blockScaleX = useTransform(scrollY, [0, 400], [0.96, 1]);
     const borderRadius = useTransform(scrollY, [0, 400], ["24px", "0px"]);
 
     // 3. The video behind slowly scales down to 1 (starts slightly zoomed in)
@@ -20,7 +19,7 @@ export default function Hero() {
     const videoY = useTransform(scrollY, [0, 500], [0, 200]); // Soft parallax tracking effect instead of pure fixed
 
     return (
-        <section className="relative w-full min-h-[100dvh] bg-white text-black overflow-hidden">
+        <section className="relative w-full min-h-[100vh] bg-white text-black overflow-hidden">
             {/* Background Video bounded accurately to the container depth */}
             <motion.div
                 style={{ scale: videoScale, y: videoY }}
@@ -56,14 +55,13 @@ export default function Hero() {
                 {/* The Large Video Window Block below the text */}
                 <motion.div
                     style={{
-                        width: blockWidth,
-                        maxWidth: maxWidth,
+                        scaleX: blockScaleX,
                         borderTopLeftRadius: borderRadius,
                         borderTopRightRadius: borderRadius,
                         borderBottomLeftRadius: borderRadius,
                         borderBottomRightRadius: borderRadius
                     }}
-                    className="mt-4 sm:mt-8 bg-black relative flex-grow min-h-[50vh]"
+                    className="mt-4 sm:mt-8 bg-black relative flex-grow min-h-[50vh] w-full max-w-[1700px] origin-bottom will-change-transform"
                 />
             </motion.div>
         </section>
